@@ -2,18 +2,43 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, error::Error, fs, io};
 
+/// Represents the type of shell being used.
+///
+/// Used for determining how to read shell history and format commands for execution.
+/// Each variant corresponds to a different shell environment with its own history format
+/// and command execution requirements.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShellKind {
+	/// Windows Command Prompt (cmd.exe)
 	Cmd,
+	/// PowerShell (both Windows and Core versions)
 	PowerShell,
+	/// GNU Bash shell
 	Bash,
+	/// POSIX shell (sh)
 	Sh,
+	/// Z shell (Zsh)
 	Zsh,
+	/// Friendly interactive shell (Fish)
 	Fish,
+	/// Nushell (Nu)
 	Nu,
+	/// Unknown or undetected shell
 	Unknown,
 }
 
+/// Retrieves the last non-'please' command from shell history and converts it to an executable format.
+///
+/// Detects the active shell, searches through history skipping any 'please' invocations,
+/// and returns the command formatted for execution with the detected shell.
+///
+/// # Returns
+///
+/// Returns a vector of strings representing the command and its arguments.
+///
+/// # Errors
+///
+/// Returns an error if the shell cannot be detected or if no suitable command is found in history.
 pub fn get_last_command() -> Result<Vec<String>, Box<dyn Error>> {
 	let detected = detect_shell();
 	if detected == ShellKind::Unknown {
@@ -40,6 +65,14 @@ pub fn get_last_command() -> Result<Vec<String>, Box<dyn Error>> {
 	}
 }
 
+/// Detects the currently active shell environment.
+///
+/// Checks environment variables and system configuration to determine the active shell.
+/// Supports: PowerShell, Cmd, Bash, Sh, Zsh, Fish, and Nushell.
+///
+/// # Returns
+///
+/// Returns a `ShellKind` enum representing the detected shell, or `ShellKind::Unknown` if detection fails.
 fn detect_shell() -> ShellKind {
 	if let Some(shell) = env::var_os("PLEASE_SHELL") {
 		return parse_shell_name(&shell.to_string_lossy());
@@ -77,6 +110,18 @@ fn detect_shell() -> ShellKind {
 	ShellKind::Unknown
 }
 
+/// Parses a shell name string into a `ShellKind` enum variant.
+///
+/// Extracts the executable name from a full path and matches it against known shell names.
+/// The matching is case-insensitive.
+///
+/// # Arguments
+///
+/// * `value` - A string containing a shell name or full path to a shell executable.
+///
+/// # Returns
+///
+/// Returns the matched `ShellKind`, or `ShellKind::Unknown` if no match is found.
 fn parse_shell_name(value: &str) -> ShellKind {
 	let shell_name = Path::new(value)
 		.file_name()
@@ -95,6 +140,23 @@ fn parse_shell_name(value: &str) -> ShellKind {
 		_ => ShellKind::Unknown,
 	}
 }
+/// Retrieves the last command from the history of a specific shell.
+///
+/// Dispatches to the appropriate shell-specific history reading function
+/// and returns the n-th command from the latest, where n is the `skip` value.
+///
+/// # Arguments
+///
+/// * `shell` - The type of shell to retrieve history from.
+/// * `skip` - The number of commands to skip from the latest (0 = most recent).
+///
+/// # Returns
+///
+/// Returns an option containing the command string, or `None` if no command is found.
+///
+/// # Errors
+///
+/// Returns an error if there's a failure reading the history file or executing shell commands.
 fn get_last_command_for_shell(
 	shell: ShellKind,
 	skip: usize,
@@ -111,12 +173,24 @@ fn get_last_command_for_shell(
 	}
 }
 
+/// Converts a raw command string into a shell-specific executable command format.
+///
+/// Wraps the command with the appropriate shell invocation flags based on the detected shell type.
+///
+/// # Arguments
+///
+/// * `shell` - The type of shell to format the command for.
+/// * `raw_command` - The raw command string to be executed.
+///
+/// # Returns
+///
+/// Returns a vector of strings representing the shell executable and arguments needed to execute the command.
 fn shell_command_to_exec(shell: ShellKind, raw_command: String) -> Vec<String> {
 	match shell {
 		ShellKind::Cmd => vec!["cmd".to_owned(), "/C".to_owned(), raw_command],
 		ShellKind::PowerShell => {
 			vec![
-				powershell_program().to_owned(),
+				powershell_program(),
 				"-NoProfile".to_owned(),
 				"-Command".to_owned(),
 				raw_command,
@@ -131,10 +205,40 @@ fn shell_command_to_exec(shell: ShellKind, raw_command: String) -> Vec<String> {
 	}
 }
 
-fn powershell_program() -> &'static str {
-	if cfg!(windows) { "powershell" } else { "pwsh" }
+/// Returns the appropriate PowerShell executable name for the current platform.
+///
+/// On Windows, tries to use `pwsh` (PowerShell 6+) if available, falling back to
+/// `powershell` (PowerShell 5.1 or earlier) if not found.
+/// On Unix-like systems, always returns `pwsh`.
+///
+/// # Returns
+///
+/// Returns the PowerShell executable name as a string.
+fn powershell_program() -> String {
+	if cfg!(windows) {
+		// On Windows, try pwsh (PowerShell 6+) first, then fall back to powershell (5.1)
+		if Command::new("pwsh")
+			.args(["-NoProfile", "-Command", "exit 0"])
+			.output()
+			.is_ok()
+		{
+			"pwsh".to_owned()
+		} else {
+			"powershell".to_owned()
+		}
+	} else {
+		"pwsh".to_owned()
+	}
 }
 
+/// Retrieves the user's home directory.
+///
+/// Checks multiple environment variables and platform-specific paths to find the home directory.
+/// Supports HOME, USERPROFILE, and Windows-specific HOMEDRIVE/HOMEPATH variables.
+///
+/// # Returns
+///
+/// Returns `Some(PathBuf)` containing the home directory path, or `None` if not found.
 fn get_home_dir() -> Option<PathBuf> {
 	if let Some(home) = env::var_os("HOME") {
 		return Some(PathBuf::from(home));
@@ -156,13 +260,38 @@ fn get_home_dir() -> Option<PathBuf> {
 	}
 }
 
+/// Retrieves the nth element from an iterator, skipping the first `skip` elements.
+///
+/// # Arguments
+///
+/// * `items` - An iterator of strings.
+/// * `skip` - The number of items to skip from the beginning (0 = first item).
+///
+/// # Returns
+///
+/// Returns `Some(String)` containing the nth element, or `None` if not enough elements exist.
 fn nth_from_latest<I>(items: I, skip: usize) -> Option<String>
 where
-	I: IntoIterator<Item=String>,
+	I: IntoIterator<Item = String>,
 {
 	items.into_iter().nth(skip)
 }
 
+/// Reads the nth non-empty line from a file in reverse order.
+///
+/// # Arguments
+///
+/// * `path` - The path to the file to read.
+/// * `skip` - The number of non-empty lines to skip from the end (0 = last line).
+///
+/// # Returns
+///
+/// Returns `Some(String)` containing the requested line, or `None` if the file is not found
+/// or doesn't contain enough non-empty lines.
+///
+/// # Errors
+///
+/// Returns an error if reading the file fails (except for NotFound errors).
 fn read_nth_non_empty_line(path: &Path, skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 	let content = match fs::read_to_string(path) {
 		Ok(content) => content,
@@ -172,7 +301,7 @@ fn read_nth_non_empty_line(path: &Path, skip: usize) -> Result<Option<String>, B
 				"failed to read history file '{}': {err}",
 				path.display()
 			))
-				.into());
+			.into());
 		}
 	};
 
@@ -187,6 +316,20 @@ fn read_nth_non_empty_line(path: &Path, skip: usize) -> Result<Option<String>, B
 	Ok(nth_from_latest(candidates, skip))
 }
 
+/// Reads the PowerShell history from the PSReadLine history file.
+///
+/// # Arguments
+///
+/// * `skip` - The number of history entries to skip from the most recent (0 = most recent).
+///
+/// # Returns
+///
+/// Returns `Some(String)` containing the requested command, or `None` if the history file is not found
+/// or the APPDATA environment variable is not set.
+///
+/// # Errors
+///
+/// Returns an error if reading the history file fails.
 fn read_powershell_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 	if let Some(app_data) = env::var_os("APPDATA") {
 		let mut history_path = PathBuf::from(app_data);
@@ -201,6 +344,19 @@ fn read_powershell_history(skip: usize) -> Result<Option<String>, Box<dyn Error>
 	Ok(None)
 }
 
+/// Reads the command history from the Windows cmd.exe doskey history.
+///
+/// # Arguments
+///
+/// * `skip` - The number of history entries to skip from the most recent (0 = most recent).
+///
+/// # Returns
+///
+/// Returns `Some(String)` containing the requested command, or `None` if the doskey command fails.
+///
+/// # Errors
+///
+/// Returns an error if reading the history fails for reasons other than the command not being found.
 fn read_cmd_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 	let output = Command::new("cmd")
 		.args(["/C", "doskey", "/history"])
@@ -227,6 +383,24 @@ fn read_cmd_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 	Ok(nth_from_latest(candidates, skip))
 }
 
+/// Reads the command history from bash-like shell history files.
+///
+/// Supports both custom HISTFILE environment variable paths and default history file locations.
+/// Automatically filters out bash timestamp markers.
+///
+/// # Arguments
+///
+/// * `histfile_env` - The environment variable name for the history file path (e.g., "HISTFILE").
+/// * `default_file` - The default history file name relative to home directory (e.g., ".bash_history").
+/// * `skip` - The number of history entries to skip from the most recent (0 = most recent).
+///
+/// # Returns
+///
+/// Returns `Some(String)` containing the requested command, or `None` if the history file is not found.
+///
+/// # Errors
+///
+/// Returns an error if reading the history file fails for reasons other than NotFound.
 fn read_bash_like_history(
 	histfile_env: &str,
 	default_file: &str,
@@ -248,7 +422,7 @@ fn read_bash_like_history(
 				"failed to read history file '{}': {err}",
 				path.display()
 			))
-				.into());
+			.into());
 		}
 	};
 
@@ -264,10 +438,38 @@ fn read_bash_like_history(
 	Ok(nth_from_latest(candidates, skip))
 }
 
+/// Checks if a line is a bash timestamp marker.
+///
+/// Bash history files can contain timestamp markers in the format `#<digits>`.
+/// This function identifies such markers.
+///
+/// # Arguments
+///
+/// * `line` - The line to check.
+///
+/// # Returns
+///
+/// Returns `true` if the line is a bash timestamp marker, `false` otherwise.
 fn is_bash_timestamp_marker(line: &str) -> bool {
 	line.starts_with('#') && line[1..].chars().all(|ch| ch.is_ascii_digit())
 }
 
+/// Reads the command history from a Zsh history file.
+///
+/// Zsh history entries may include timing information separated by semicolons.
+/// This function parses those entries and extracts the actual commands.
+///
+/// # Arguments
+///
+/// * `skip` - The number of history entries to skip from the most recent (0 = most recent).
+///
+/// # Returns
+///
+/// Returns `Some(String)` containing the requested command, or `None` if the history file is not found.
+///
+/// # Errors
+///
+/// Returns an error if reading the history file fails for reasons other than NotFound.
 fn read_zsh_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 	let Some(home) = get_home_dir() else {
 		return Ok(None);
@@ -282,7 +484,7 @@ fn read_zsh_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 				"failed to read history file '{}': {err}",
 				path.display()
 			))
-				.into());
+			.into());
 		}
 	};
 
@@ -305,6 +507,22 @@ fn read_zsh_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 	Ok(nth_from_latest(candidates, skip))
 }
 
+/// Reads the command history from a Fish shell history file.
+///
+/// Fish history is stored in YAML format with commands prefixed by "- cmd: ".
+/// This function extracts the command entries and filters timestamps.
+///
+/// # Arguments
+///
+/// * `skip` - The number of history entries to skip from the most recent (0 = most recent).
+///
+/// # Returns
+///
+/// Returns `Some(String)` containing the requested command, or `None` if the history file is not found.
+///
+/// # Errors
+///
+/// Returns an error if reading the history file fails for reasons other than NotFound.
 fn read_fish_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 	let path = if let Some(xdg_data_home) = env::var_os("XDG_DATA_HOME") {
 		PathBuf::from(xdg_data_home)
@@ -327,7 +545,7 @@ fn read_fish_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 				"failed to read history file '{}': {err}",
 				path.display()
 			))
-				.into());
+			.into());
 		}
 	};
 
@@ -343,6 +561,22 @@ fn read_fish_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 	Ok(nth_from_latest(candidates, skip))
 }
 
+/// Reads the command history from a Nushell history source.
+///
+/// Attempts to retrieve history through the `nu` command first.
+/// If that fails, falls back to reading the text history file.
+///
+/// # Arguments
+///
+/// * `skip` - The number of history entries to skip from the most recent (0 = most recent).
+///
+/// # Returns
+///
+/// Returns `Some(String)` containing the requested command, or `None` if no history is found.
+///
+/// # Errors
+///
+/// Returns an error if reading the history file fails for reasons other than NotFound.
 fn read_nu_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 	let nu_query = format!("history | get command | reverse | skip {} | first", skip);
 	let output = Command::new("nu").args(["-c", &nu_query]).output();
@@ -364,6 +598,18 @@ fn read_nu_history(skip: usize) -> Result<Option<String>, Box<dyn Error>> {
 	read_nth_non_empty_line(&text_history_path, skip)
 }
 
+/// Checks if a command line is a self-invocation of the `please` command.
+///
+/// Detects various forms of the `please` command including direct invocations,
+/// executable names, and path-based references with forward or backward slashes.
+///
+/// # Arguments
+///
+/// * `command_line` - The command line string to check.
+///
+/// # Returns
+///
+/// Returns `true` if the command is a `please` invocation, `false` otherwise.
 fn is_self_invocation(command_line: &str) -> bool {
 	let first = command_line.split_whitespace().next().unwrap_or_default();
 	let first = first

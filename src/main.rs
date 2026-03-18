@@ -5,6 +5,20 @@ use std::error::Error;
 use std::io;
 use std::process::{self, Command, Stdio};
 
+/// Executes a system command with the given arguments.
+///
+/// # Arguments
+///
+/// * `command_args` - A slice of strings where the first element is the command name
+///   and the remaining elements are arguments to pass to the command.
+///
+/// # Returns
+///
+/// Returns the exit code of the executed command, or an error if the command failed to start.
+///
+/// # Errors
+///
+/// Returns an error if the command arguments are empty or if the command fails to start.
 fn execute_command(command_args: &[String]) -> Result<i32, Box<dyn Error>> {
 	if command_args.is_empty() {
 		return Err(io::Error::other("illegal command length of zero").into());
@@ -27,6 +41,9 @@ fn execute_command(command_args: &[String]) -> Result<i32, Box<dyn Error>> {
 	Ok(status.code().unwrap_or(1))
 }
 
+/// Prints the help message to stdout.
+///
+/// Displays usage information, behavior description, and examples for the `please` command.
 fn print_help() {
 	println!(
 		"please - run commands with sudo, or re-run the last saved command.\n\
@@ -46,6 +63,18 @@ Examples:\n\
 	)
 }
 
+/// Entry point for the `please` command-line application.
+///
+/// Processes command-line arguments and either runs a given command with `sudo` or retrieves
+/// and runs the last saved command from shell history.
+///
+/// # Returns
+///
+/// Returns `Ok(())` on success or an error if command execution fails.
+///
+/// # Errors
+///
+/// Returns an error if the command fails to execute or if the shell detection fails.
 fn main() -> Result<(), Box<dyn Error>> {
 	let args: Vec<String> = args().collect();
 	if args.len() == 2 && matches!(args[1].as_str(), "-h" | "--help") {
