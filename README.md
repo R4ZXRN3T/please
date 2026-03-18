@@ -14,9 +14,9 @@ Typing `sudo !!` or copy-pasting the previous command can be shell-specific and 
 
 ## Requirements
 
-- Git for cloning the repo
-- Rust toolchain (for building from source)
-- Make for executing the build scripts.
+- [Git](https://git-scm.com/) for cloning the repo
+- [Rust toolchain](https://rust-lang.org/learn/get-started/) (for building from source)
+- [Make](https://www.gnu.org/software/make/) for executing the build scripts.
 
 ### Platform-Specific Requirements
 
@@ -51,13 +51,17 @@ The following shells are supported for `please` (no args) mode, which re-runs yo
 
 *Windows can run all shells except cmd through [WSL](https://learn.microsoft.com/windows/wsl/) (Windows Subsystem for
 Linux)\
-**bash on Windows requires Git Bash
+**bash on Windows requires [Git Bash](https://gitforwindows.org/#bash)
 
 ## Installation
 
 ### 1) Build and install with Makefile
 
 1. Clone the repository (requires Git)
+
+```bash
+git clone https://github.com/R4ZXRN3T/please.git
+```
 2. Open a terminal inside the cloned directory
 3. Run:
 
