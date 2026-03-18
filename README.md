@@ -144,7 +144,7 @@ please
 When you run `please` without arguments:
 
 1. it detects your shell
-2. reads recent history entries
+2. reads the last hostory entry
 3. skips entries that are `please` itself
 4. wraps the selected command for your shell and executes it via `sudo`
 
