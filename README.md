@@ -33,9 +33,13 @@ Typing `sudo !!` or copy-pasting the previous command can be shell-specific and 
 > `sudo` is only available on Windows 11 with update `24H2` or later.
 > To enable it:
 >
-> **System Settings → System → Advanced → Activate sudo → inline**
+> **System Settings → System → Advanced → Activate sudo → Choose an operating mode (inline recommended)**
+>
+> [read more about sudo for windows](https://learn.microsoft.com/windows/advanced-settings/sudo/)
 >
 > If you're on an earlier Windows version, `please` will not work.
+>
+> Alternatively you can also try to use [gsudo](https://github.com/gerardog/gsudo). 
 
 ### Supported Shells
 
