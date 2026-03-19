@@ -39,7 +39,7 @@ Typing `sudo !!` or copy-pasting the previous command can be shell-specific and 
 >
 > If you're on an earlier Windows version, `please` will not work.
 >
-> Alternatively you can also try to use [gsudo](https://github.com/gerardog/gsudo). 
+> Alternatively you can also try to use [gsudo](https://github.com/gerardog/gsudo). This alternative will work on everything newer than Windows 7 Service Pack 1.
 
 ### Supported Shells
 
