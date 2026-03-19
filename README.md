@@ -37,9 +37,8 @@ Typing `sudo !!` or copy-pasting the previous command can be shell-specific and 
 >
 > [read more about sudo for windows](https://learn.microsoft.com/windows/advanced-settings/sudo/)
 >
-> If you're on an earlier Windows version, `please` will not work.
->
-> Alternatively you can also try to use [gsudo](https://github.com/gerardog/gsudo). This alternative will work on everything newer than Windows 7 Service Pack 1.
+> If you're on an earlier Windows version, you will have to use [gsudo](https://github.com/gerardog/gsudo), which works on everything newer than Windows 7 SP 1. Without any `sudo` implementation, `please` will not work.
+> Also, make sure that `sudo` is available on `PATH`.
 
 ### Supported Shells
 
